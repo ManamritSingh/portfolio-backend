@@ -22,6 +22,8 @@ public interface EducationRepository extends JpaRepository<Education, Long> {
     // Find education by degree type
     List<Education> findByDegreeContainingIgnoreCaseAndIsVisibleTrueOrderByOrderIndexAsc(String degree);
 
+    long countByIsVisibleTrue();
+
     // Custom query to get max order index for auto-ordering
     @Query("SELECT COALESCE(MAX(e.orderIndex), 0) FROM Education e")
     Integer getMaxOrderIndex();

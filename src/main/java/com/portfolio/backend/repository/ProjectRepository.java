@@ -16,6 +16,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     // Find all projects ordered by orderIndex
     List<Project> findAllByOrderByOrderIndexAsc();
 
+    long countByIsVisibleTrue();
+
     // Custom query to get max order index for auto-ordering
     @Query("SELECT COALESCE(MAX(p.orderIndex), 0) FROM Project p")
     Integer getMaxOrderIndex();

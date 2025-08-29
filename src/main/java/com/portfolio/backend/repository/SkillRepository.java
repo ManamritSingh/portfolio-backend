@@ -32,6 +32,8 @@ public interface SkillRepository extends JpaRepository<Skill, Long> {
     // Find categories containing specific keyword
     List<Skill> findByCategoryContainingIgnoreCaseAndIsVisibleTrueOrderByOrderIndexAsc(String keyword);
 
+    long countByIsVisibleTrue();
+
     // Custom query to get max order index for auto-ordering
     @Query("SELECT COALESCE(MAX(s.orderIndex), 0) FROM Skill s")
     Integer getMaxOrderIndex();

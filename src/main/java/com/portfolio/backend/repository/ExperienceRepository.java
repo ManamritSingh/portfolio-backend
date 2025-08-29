@@ -10,6 +10,8 @@ import java.util.List;
 @Repository
 public interface ExperienceRepository extends JpaRepository<Experience, Long> {
 
+    long countByIsVisibleTrue();
+
     // Find visible experiences ordered by orderIndex
     List<Experience> findByIsVisibleTrueOrderByOrderIndexAsc();
 
