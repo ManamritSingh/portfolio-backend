@@ -3,7 +3,7 @@ package com.portfolio.backend.controller;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5173") // Vite runs on 5173, not 3000!
+//@CrossOrigin(origins = "http://localhost:5173") // Vite runs on 5173, not 3000!
 public class HomeController {
 
     @GetMapping("/")
