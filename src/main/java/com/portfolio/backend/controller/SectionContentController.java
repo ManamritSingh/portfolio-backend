@@ -11,8 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/sections/{sectionId}/content")
-@CrossOrigin(origins = "http://localhost:5173")
+// Removed class-level annotations
 public class SectionContentController {
 
     @Autowired
@@ -21,62 +20,58 @@ public class SectionContentController {
     @Autowired
     private SectionRepository sectionRepository;
 
-    // Get all visible content for a section (for public resume)
-    @GetMapping("/public")
+    // ===========================================
+    // PUBLIC ENDPOINTS - No authentication required
+    // ===========================================
+
+    @GetMapping("/api/public/sections/{sectionId}/content")
     public List<SectionContent> getVisibleContentForSection(@PathVariable Long sectionId) {
         return sectionContentRepository.findBySectionIdAndIsVisibleTrueOrderByOrderIndexAsc(sectionId);
     }
 
-    // Get all content for a section (for admin)
-    @GetMapping
-    public List<SectionContent> getAllContentForSection(@PathVariable Long sectionId) {
-        return sectionContentRepository.findBySectionIdOrderByOrderIndexAsc(sectionId);
-    }
-
-    // Get content with URLs for a section
-    @GetMapping("/with-urls")
+    @GetMapping("/api/public/sections/{sectionId}/content/with-urls")
     public List<SectionContent> getContentWithUrls(@PathVariable Long sectionId) {
         return sectionContentRepository.findBySectionIdAndPrimaryUrlIsNotNullAndIsVisibleTrueOrderByOrderIndexAsc(sectionId);
     }
 
-    // Get content with bullet points for a section
-    @GetMapping("/with-bullets")
+    @GetMapping("/api/public/sections/{sectionId}/content/with-bullets")
     public List<SectionContent> getContentWithBulletPoints(@PathVariable Long sectionId) {
         return sectionContentRepository.findContentWithBulletPoints(sectionId);
     }
 
-    // Search content by title within a section
-    @GetMapping("/search/title/{keyword}")
+    @GetMapping("/api/public/sections/{sectionId}/content/search/title/{keyword}")
     public List<SectionContent> searchContentByTitle(@PathVariable Long sectionId, @PathVariable String keyword) {
         return sectionContentRepository.findBySectionIdAndTitleContainingIgnoreCaseAndIsVisibleTrueOrderByOrderIndexAsc(sectionId, keyword);
     }
 
-    // Search content by description within a section
-    @GetMapping("/search/description/{keyword}")
+    @GetMapping("/api/public/sections/{sectionId}/content/search/description/{keyword}")
     public List<SectionContent> searchContentByDescription(@PathVariable Long sectionId, @PathVariable String keyword) {
         return sectionContentRepository.findBySectionIdAndDescriptionContainingIgnoreCaseAndIsVisibleTrueOrderByOrderIndexAsc(sectionId, keyword);
     }
 
-    // Count content items in section
-    @GetMapping("/count")
+    @GetMapping("/api/public/sections/{sectionId}/content/count")
     public ResponseEntity<Long> getContentCount(@PathVariable Long sectionId) {
         long count = sectionContentRepository.countBySectionIdAndIsVisibleTrue(sectionId);
         return ResponseEntity.ok(count);
     }
 
-    // Create new content for section
-    @PostMapping
-    public ResponseEntity<SectionContent> createContent(@PathVariable Long sectionId,
-                                                        @RequestBody SectionContent content) {
-        // Verify section exists
+    // ===========================================
+    // ADMIN ENDPOINTS - Requires ROLE_ADMIN
+    // ===========================================
+
+    @GetMapping("/api/admin/sections/{sectionId}/content")
+    public List<SectionContent> getAllContentForSection(@PathVariable Long sectionId) {
+        return sectionContentRepository.findBySectionIdOrderByOrderIndexAsc(sectionId);
+    }
+
+    @PostMapping("/api/admin/sections/{sectionId}/content")
+    public ResponseEntity<SectionContent> createContent(@PathVariable Long sectionId, @RequestBody SectionContent content) {
         if (!sectionRepository.existsById(sectionId)) {
             return ResponseEntity.badRequest().build();
         }
 
-        // Set the section
         content.setSection(sectionRepository.findById(sectionId).get());
 
-        // Auto-set order index if not provided
         if (content.getOrderIndex() == null) {
             content.setOrderIndex(sectionContentRepository.getMaxOrderIndexForSection(sectionId) + 1);
         }
@@ -85,17 +80,13 @@ public class SectionContentController {
         return ResponseEntity.ok(savedContent);
     }
 
-    // Update content
-    @PutMapping("/{contentId}")
-    public ResponseEntity<SectionContent> updateContent(@PathVariable Long sectionId,
-                                                        @PathVariable Long contentId,
-                                                        @RequestBody SectionContent contentDetails) {
+    @PutMapping("/api/admin/sections/{sectionId}/content/{contentId}")
+    public ResponseEntity<SectionContent> updateContent(@PathVariable Long sectionId, @PathVariable Long contentId, @RequestBody SectionContent contentDetails) {
         Optional<SectionContent> optionalContent = sectionContentRepository.findById(contentId);
 
         if (optionalContent.isPresent()) {
             SectionContent content = optionalContent.get();
 
-            // Verify content belongs to the correct section
             if (!content.getSection().getId().equals(sectionId)) {
                 return ResponseEntity.badRequest().build();
             }
@@ -117,52 +108,43 @@ public class SectionContentController {
         return ResponseEntity.notFound().build();
     }
 
-    // Delete content
-    @DeleteMapping("/{contentId}")
+    @DeleteMapping("/api/admin/sections/{sectionId}/content/{contentId}")
     public ResponseEntity<?> deleteContent(@PathVariable Long sectionId, @PathVariable Long contentId) {
         Optional<SectionContent> optionalContent = sectionContentRepository.findById(contentId);
-
         if (optionalContent.isPresent()) {
             SectionContent content = optionalContent.get();
-
-            // Verify content belongs to the correct section
             if (!content.getSection().getId().equals(sectionId)) {
                 return ResponseEntity.badRequest().build();
             }
-
             sectionContentRepository.deleteById(contentId);
             return ResponseEntity.ok().build();
         }
-
         return ResponseEntity.notFound().build();
     }
 }
-
-// Additional controller for global section content operations
 @RestController
-@RequestMapping("/api/section-content")
-@CrossOrigin(origins = "http://localhost:5173")
+// Removed class-level annotations
 class GlobalSectionContentController {
 
     @Autowired
     private SectionContentRepository sectionContentRepository;
 
-    // Get single content item by ID
-    @GetMapping("/{id}")
+    // ===========================================
+    // PUBLIC ENDPOINTS - No authentication required
+    // ===========================================
+
+    @GetMapping("/api/public/section-content/{id}")
     public ResponseEntity<SectionContent> getContent(@PathVariable Long id) {
         Optional<SectionContent> content = sectionContentRepository.findById(id);
-        return content.map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return content.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
-    // Get all visible content across all sections
-    @GetMapping("/all/public")
+    @GetMapping("/api/public/section-content/all")
     public List<SectionContent> getAllVisibleContent() {
         return sectionContentRepository.findByIsVisibleTrueOrderByOrderIndexAsc();
     }
 
-    // Get content by section name
-    @GetMapping("/by-section/{sectionName}")
+    @GetMapping("/api/public/section-content/by-section/{sectionName}")
     public List<SectionContent> getContentBySectionName(@PathVariable String sectionName) {
         return sectionContentRepository.findBySectionNameAndVisible(sectionName);
     }

@@ -10,65 +10,71 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/education")
-@CrossOrigin(origins = "http://localhost:5173")
+// Class-level annotations removed for specific path mapping and global CORS handling
 public class EducationController {
 
     @Autowired
     private EducationRepository educationRepository;
 
-    // Get all visible education entries (for public resume)
-    @GetMapping("/public")
+    // ===========================================
+    // PUBLIC ENDPOINTS - No authentication required
+    // ===========================================
+
+    @GetMapping("/api/public/education")
     public List<Education> getVisibleEducation() {
+        // Main public endpoint to get all visible education entries
         return educationRepository.findByIsVisibleTrueOrderByOrderIndexAsc();
     }
 
-    // Get graduate degrees only
-    @GetMapping("/graduate")
+    @GetMapping("/api/public/education/graduate")
     public List<Education> getGraduateDegrees() {
+        // Public endpoint to filter for graduate degrees
         return educationRepository.findGraduateDegrees();
     }
 
-    // Get undergraduate degrees only
-    @GetMapping("/undergraduate")
+    @GetMapping("/api/public/education/undergraduate")
     public List<Education> getUndergraduateDegrees() {
+        // Public endpoint to filter for undergraduate degrees
         return educationRepository.findUndergraduateDegrees();
     }
 
-    // Get education by institution
-    @GetMapping("/institution/{institutionName}")
+    @GetMapping("/api/public/education/institution/{institutionName}")
     public List<Education> getEducationByInstitution(@PathVariable String institutionName) {
+        // Public endpoint to search for education by institution name
         return educationRepository.findByInstitutionContainingIgnoreCaseAndIsVisibleTrueOrderByOrderIndexAsc(institutionName);
     }
 
-    // Get all education entries (for admin)
-    @GetMapping
+    // ===========================================
+    // ADMIN ENDPOINTS - Requires ROLE_ADMIN
+    // ===========================================
+
+    @GetMapping("/api/admin/education")
     public List<Education> getAllEducation() {
+        // Admin gets all education entries, including hidden ones
         return educationRepository.findAllByOrderByOrderIndexAsc();
     }
 
-    // Get single education entry
-    @GetMapping("/{id}")
+    @GetMapping("/api/admin/education/{id}")
     public ResponseEntity<Education> getEducation(@PathVariable Long id) {
+        // Admin gets a single education entry by its ID
         Optional<Education> education = educationRepository.findById(id);
         return education.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Create new education entry
-    @PostMapping
+    @PostMapping("/api/admin/education")
     public Education createEducation(@RequestBody Education education) {
-        // Auto-set order index if not provided
+        // Admin creates a new education entry
         if (education.getOrderIndex() == null) {
             education.setOrderIndex(educationRepository.getMaxOrderIndex() + 1);
         }
         return educationRepository.save(education);
     }
 
-    // Update education entry
-    @PutMapping("/{id}")
+    @PutMapping("/api/admin/education/{id}")
     public ResponseEntity<Education> updateEducation(@PathVariable Long id,
                                                      @RequestBody Education educationDetails) {
+        // Admin updates an existing education entry
         Optional<Education> optionalEducation = educationRepository.findById(id);
 
         if (optionalEducation.isPresent()) {
@@ -86,9 +92,9 @@ public class EducationController {
         return ResponseEntity.notFound().build();
     }
 
-    // Delete education entry
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/api/admin/education/{id}")
     public ResponseEntity<?> deleteEducation(@PathVariable Long id) {
+        // Admin deletes an education entry
         if (educationRepository.existsById(id)) {
             educationRepository.deleteById(id);
             return ResponseEntity.ok().build();

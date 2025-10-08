@@ -1,20 +1,24 @@
 package com.portfolio.backend.dto;
 
+import com.portfolio.backend.model.Section;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UnifiedSection {
-    private Long id; // null for virtual sections
+
+    // ... (all your fields and the main constructor remain the same) ...
+    private Long id;
     private String sectionName;
     private String description;
     private Integer orderIndex;
-    private Boolean visible;
-    private String sectionType; // "personal-info", "experience", "education", "dynamic"
-    private Boolean isDynamic; // false for fixed sections, true for custom sections
-    private Integer contentCount;
+    private Boolean isVisible;
+    private String sectionType;
+    private Boolean isDynamic;
+    private Integer itemCount;
+    private String route;
     private LocalDateTime createdAt;
-    private String route; // Frontend route for navigation
 
-    // Constructors
     public UnifiedSection() {}
 
     public UnifiedSection(Long id, String sectionName, String description, Integer orderIndex,
@@ -24,32 +28,32 @@ public class UnifiedSection {
         this.sectionName = sectionName;
         this.description = description;
         this.orderIndex = orderIndex;
-        this.visible = visible;
+        this.isVisible = visible;
         this.sectionType = sectionType;
         this.isDynamic = isDynamic;
-        this.contentCount = contentCount;
+        this.itemCount = contentCount;
         this.createdAt = createdAt;
         this.route = route;
     }
 
-    // Static factory methods for fixed sections
-    public static UnifiedSection createFixedSection(String name, String description, Integer order,
-                                                    String type, String route, Integer count) {
-        return new UnifiedSection(
-                null, // No real ID for fixed sections
-                name,
-                description,
-                order,
-                true, // Always visible for now
-                type,
-                false, // Fixed section
-                count,
-                LocalDateTime.now(),
-                route
-        );
+
+    // --- THE FIX IS HERE ---
+
+    /**
+     * NEW: Overloaded method that only requires 2 arguments.
+     * This is the version your service will now call.
+     */
+    public static UnifiedSection fromDynamicSection(Section section, Integer contentCount) {
+        // It constructs the route internally...
+        String route = "/admin/sections/" + section.getId() + "/content";
+        // ...and then calls the original 3-argument method.
+        return fromDynamicSection(section, contentCount, route);
     }
 
-    public static UnifiedSection fromDynamicSection(com.portfolio.backend.model.Section section,
+    /**
+     * ORIGINAL: The 3-argument factory method remains unchanged.
+     */
+    public static UnifiedSection fromDynamicSection(Section section,
                                                     Integer contentCount, String route) {
         return new UnifiedSection(
                 section.getId(),
@@ -58,14 +62,23 @@ public class UnifiedSection {
                 section.getOrderIndex(),
                 section.getVisible(),
                 "dynamic",
-                true, // Dynamic section
+                true,
                 contentCount,
                 section.getCreatedAt(),
                 route
         );
     }
 
-    // Getters and Setters
+    /**
+     * Factory for fixed sections (already correct).
+     */
+    public static UnifiedSection createFixedSection(String name, String description, Integer order,
+                                                    String type, String route, Integer count, Boolean visible) {
+        return new UnifiedSection(null, name, description, order, visible, type, false, count, null, route);
+    }
+
+    // --- Getters and Setters ... ---
+
     public Long getId() {
         return id;
     }
@@ -99,11 +112,11 @@ public class UnifiedSection {
     }
 
     public Boolean getVisible() {
-        return visible;
+        return isVisible;
     }
 
     public void setVisible(Boolean visible) {
-        this.visible = visible;
+        isVisible = visible;
     }
 
     public String getSectionType() {
@@ -114,28 +127,12 @@ public class UnifiedSection {
         this.sectionType = sectionType;
     }
 
-    public Boolean getIsDynamic() {
+    public Boolean getDynamic() {
         return isDynamic;
     }
 
-    public void setIsDynamic(Boolean isDynamic) {
-        this.isDynamic = isDynamic;
-    }
-
-    public Integer getContentCount() {
-        return contentCount;
-    }
-
-    public void setContentCount(Integer contentCount) {
-        this.contentCount = contentCount;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public void setDynamic(Boolean dynamic) {
+        isDynamic = dynamic;
     }
 
     public String getRoute() {
@@ -144,5 +141,21 @@ public class UnifiedSection {
 
     public void setRoute(String route) {
         this.route = route;
+    }
+
+    public Integer getItemCount() {
+        return itemCount;
+    }
+
+    public void setItemCount(Integer itemCount) {
+        this.itemCount = itemCount;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

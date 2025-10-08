@@ -10,43 +10,49 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/certifications")
-@CrossOrigin(origins = "http://localhost:5173")
+// Class-level annotations removed for specific path mapping and global CORS handling
 public class CertificationController {
 
     @Autowired
     private CertificationRepository certificationRepository;
 
-    // Get all visible certifications (for public resume)
-    @GetMapping("/public")
+    // ===========================================
+    // PUBLIC ENDPOINTS - No authentication required
+    // ===========================================
+
+    @GetMapping("/api/public/certifications")
     public List<Certification> getVisibleCertifications() {
+        // Public endpoint returns only visible certifications
         return certificationRepository.findByIsVisibleTrueOrderByOrderIndexAsc();
     }
 
-    // Get all certifications (for admin)
-    @GetMapping
+    @GetMapping("/api/public/certifications/count")
+    public ResponseEntity<Long> getCertificationCount() {
+        // Public endpoint returning count of visible certifications
+        return ResponseEntity.ok(certificationRepository.countByIsVisibleTrue());
+    }
+
+    // ===========================================
+    // ADMIN ENDPOINTS - Requires ROLE_ADMIN
+    // ===========================================
+
+    @GetMapping("/api/admin/certifications")
     public List<Certification> getAllCertifications() {
+        // Admin can access all certifications (visible + hidden)
         return certificationRepository.findAllByOrderByOrderIndexAsc();
     }
 
-    // Get single certification
-    @GetMapping("/{id}")
+    @GetMapping("/api/admin/certifications/{id}")
     public ResponseEntity<Certification> getCertification(@PathVariable Long id) {
+        // Admin can get single certification by ID
         Optional<Certification> certification = certificationRepository.findById(id);
         return certification.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Get certification count
-    @GetMapping("/count")
-    public ResponseEntity<Long> getCertificationCount() {
-        return ResponseEntity.ok(certificationRepository.countByIsVisibleTrue());
-    }
-
-    // Create new certification
-    @PostMapping
+    @PostMapping("/api/admin/certifications")
     public ResponseEntity<Certification> createCertification(@RequestBody Certification certification) {
-        // Auto-set order index if not provided
+        // Admin creates new certification;
         if (certification.getOrderIndex() == null) {
             certification.setOrderIndex(certificationRepository.getMaxOrderIndex() + 1);
         }
@@ -55,8 +61,7 @@ public class CertificationController {
         return ResponseEntity.ok(savedCertification);
     }
 
-    // Update certification
-    @PutMapping("/{id}")
+    @PutMapping("/api/admin/certifications/{id}")
     public ResponseEntity<Certification> updateCertification(@PathVariable Long id, @RequestBody Certification certificationDetails) {
         Optional<Certification> optionalCertification = certificationRepository.findById(id);
 
@@ -75,8 +80,7 @@ public class CertificationController {
         return ResponseEntity.notFound().build();
     }
 
-    // Delete certification
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/api/admin/certifications/{id}")
     public ResponseEntity<?> deleteCertification(@PathVariable Long id) {
         if (certificationRepository.existsById(id)) {
             certificationRepository.deleteById(id);

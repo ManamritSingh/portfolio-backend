@@ -10,45 +10,52 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/projects")
-@CrossOrigin(origins = "http://localhost:5173")
+// Removed class-level @RequestMapping and @CrossOrigin for global CORS handling
 public class ProjectController {
 
     @Autowired
     private ProjectRepository projectRepository;
 
-    // Get all visible projects (for public resume)
-    @GetMapping("/public")
+    // ===========================================
+    // PUBLIC ENDPOINTS - No authentication required
+    // ===========================================
+
+    @GetMapping("/api/public/projects")
     public List<Project> getVisibleProjects() {
+        // Get all visible projects for display on public portfolio
         return projectRepository.findByIsVisibleTrueOrderByOrderIndexAsc();
     }
 
-    // Get all projects (for admin)
-    @GetMapping
+    // ===========================================
+    // ADMIN ENDPOINTS - Requires ROLE_ADMIN
+    // ===========================================
+
+    @GetMapping("/api/admin/projects")
     public List<Project> getAllProjects() {
+        // Admin can get all projects regardless of visibility
         return projectRepository.findAllByOrderByOrderIndexAsc();
     }
 
-    // Get single project
-    @GetMapping("/{id}")
+    @GetMapping("/api/admin/projects/{id}")
     public ResponseEntity<Project> getProject(@PathVariable Long id) {
+        // Admin can get any single project by its ID
         Optional<Project> project = projectRepository.findById(id);
         return project.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Create new project
-    @PostMapping
+    @PostMapping("/api/admin/projects")
     public Project createProject(@RequestBody Project project) {
-        // Auto-set order index if not provided
+        // Admin creates a new project
         if (project.getOrderIndex() == null) {
             project.setOrderIndex(projectRepository.getMaxOrderIndex() + 1);
         }
         return projectRepository.save(project);
     }
 
-    @PutMapping("/reorder")
+    @PutMapping("/api/admin/projects/reorder")
     public ResponseEntity<List<Project>> reorderProjects(@RequestBody List<Project> projects) {
+        // Admin-only endpoint for batch-updating project order
         try {
             List<Project> updatedProjects = projectRepository.saveAll(projects);
             return ResponseEntity.ok(updatedProjects);
@@ -57,9 +64,9 @@ public class ProjectController {
         }
     }
 
-    // Update project
-    @PutMapping("/{id}")
+    @PutMapping("/api/admin/projects/{id}")
     public ResponseEntity<Project> updateProject(@PathVariable Long id, @RequestBody Project projectDetails) {
+        // Admin updates an existing project
         Optional<Project> optionalProject = projectRepository.findById(id);
 
         if (optionalProject.isPresent()) {
@@ -77,9 +84,9 @@ public class ProjectController {
         return ResponseEntity.notFound().build();
     }
 
-    // Delete project
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/api/admin/projects/{id}")
     public ResponseEntity<?> deleteProject(@PathVariable Long id) {
+        // Admin deletes a project
         if (projectRepository.existsById(id)) {
             projectRepository.deleteById(id);
             return ResponseEntity.ok().build();

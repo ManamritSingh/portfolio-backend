@@ -10,49 +10,55 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/leadership")
-@CrossOrigin(origins = "http://localhost:5173")
+// Removed class-level @RequestMapping and @CrossOrigin for global config
 public class LeadershipController {
 
     @Autowired
     private LeadershipRepository leadershipRepository;
 
-    // Get all visible leadership (for public resume)
-    @GetMapping("/public")
+    // ===========================================
+    // PUBLIC ENDPOINTS - No authentication required
+    // ===========================================
+
+    @GetMapping("/api/public/leadership")
     public List<Leadership> getVisibleLeadership() {
+        // Main public endpoint to get all visible leadership entries
         return leadershipRepository.findByIsVisibleTrueOrderByOrderIndexAsc();
     }
 
-    // Get all leadership (for admin)
-    @GetMapping
+    @GetMapping("/api/public/leadership/search/{keyword}")
+    public List<Leadership> searchLeadership(@PathVariable String keyword) {
+        // Public search endpoint; only searches within visible entries
+        return leadershipRepository.findByDescriptionContainingIgnoreCaseAndIsVisibleTrueOrderByOrderIndexAsc(keyword);
+    }
+
+    @GetMapping("/api/public/leadership/count")
+    public ResponseEntity<Long> getLeadershipCount() {
+        // Public count of visible leadership entries
+        return ResponseEntity.ok(leadershipRepository.countByIsVisibleTrue());
+    }
+
+    // ===========================================
+    // ADMIN ENDPOINTS - Requires ROLE_ADMIN
+    // ===========================================
+
+    @GetMapping("/api/admin/leadership")
     public List<Leadership> getAllLeadership() {
+        // Admin gets all leadership entries, including hidden ones
         return leadershipRepository.findAllByOrderByOrderIndexAsc();
     }
 
-    // Get single leadership
-    @GetMapping("/{id}")
+    @GetMapping("/api/admin/leadership/{id}")
     public ResponseEntity<Leadership> getLeadership(@PathVariable Long id) {
+        // Admin gets a single leadership entry by its ID
         Optional<Leadership> leadership = leadershipRepository.findById(id);
         return leadership.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Search leadership by keyword
-    @GetMapping("/search/{keyword}")
-    public List<Leadership> searchLeadership(@PathVariable String keyword) {
-        return leadershipRepository.findByDescriptionContainingIgnoreCaseAndIsVisibleTrueOrderByOrderIndexAsc(keyword);
-    }
-
-    // Get leadership count
-    @GetMapping("/count")
-    public ResponseEntity<Long> getLeadershipCount() {
-        return ResponseEntity.ok(leadershipRepository.countByIsVisibleTrue());
-    }
-
-    // Create new leadership
-    @PostMapping
+    @PostMapping("/api/admin/leadership")
     public ResponseEntity<Leadership> createLeadership(@RequestBody Leadership leadership) {
-        // Auto-set order index if not provided
+        // Admin creates a new leadership entry
         if (leadership.getOrderIndex() == null) {
             leadership.setOrderIndex(leadershipRepository.getMaxOrderIndex() + 1);
         }
@@ -61,9 +67,9 @@ public class LeadershipController {
         return ResponseEntity.ok(savedLeadership);
     }
 
-    // Update leadership
-    @PutMapping("/{id}")
+    @PutMapping("/api/admin/leadership/{id}")
     public ResponseEntity<Leadership> updateLeadership(@PathVariable Long id, @RequestBody Leadership leadershipDetails) {
+        // Admin updates an existing leadership entry
         Optional<Leadership> optionalLeadership = leadershipRepository.findById(id);
 
         if (optionalLeadership.isPresent()) {
@@ -78,9 +84,9 @@ public class LeadershipController {
         return ResponseEntity.notFound().build();
     }
 
-    // Delete leadership
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/api/admin/leadership/{id}")
     public ResponseEntity<?> deleteLeadership(@PathVariable Long id) {
+        // Admin deletes a leadership entry
         if (leadershipRepository.existsById(id)) {
             leadershipRepository.deleteById(id);
             return ResponseEntity.ok().build();

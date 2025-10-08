@@ -6,6 +6,7 @@ import com.portfolio.backend.model.SectionSetting;
 import com.portfolio.backend.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -43,29 +44,25 @@ public class SectionAdapterService {
     public List<UnifiedSection> getAllSectionsUnified() {
         List<UnifiedSection> allSections = new ArrayList<>();
 
-        // Get saved orders from section_settings table
-        Map<String, Integer> savedOrders = getSavedFixedSectionOrders();
+        // Get saved settings from the database
+        Map<String, SectionSetting> settingsMap = sectionSettingRepository.findAll().stream()
+                .collect(Collectors.toMap(SectionSetting::getSectionType, setting -> setting));
 
-        // Add fixed sections using saved orders
-        allSections.add(createPersonalInfoSection(savedOrders.getOrDefault("personal-info", 1)));
-        allSections.add(createExperienceSection(savedOrders.getOrDefault("experience", 2)));
-        allSections.add(createEducationSection(savedOrders.getOrDefault("education", 3)));
-        allSections.add(createSkillsSection(savedOrders.getOrDefault("skills", 4)));
-        allSections.add(createProjectsSection(savedOrders.getOrDefault("projects", 5)));
-        allSections.add(createCertificationsSection(savedOrders.getOrDefault("certifications", 6)));
-        allSections.add(createLeadershipSection(savedOrders.getOrDefault("leadership", 7)));
+        // Add fixed sections using saved or default settings
+        allSections.add(createFixedSectionFromSetting("personal-info", "Personal Information", "Contact details and basic information", "/admin/personal", 1, 1L, settingsMap));
+        allSections.add(createFixedSectionFromSetting("experience", "Experience", "Work experience and professional history", "/admin/experience", 2, experienceRepository.countByIsVisibleTrue(), settingsMap));
+        allSections.add(createFixedSectionFromSetting("education", "Education", "Academic background and qualifications", "/admin/education", 3, educationRepository.countByIsVisibleTrue(), settingsMap));
+        allSections.add(createFixedSectionFromSetting("skills", "Skills", "Technical skills and competencies", "/admin/skills", 4, skillRepository.countByIsVisibleTrue(), settingsMap));
+        allSections.add(createFixedSectionFromSetting("projects", "Projects", "Portfolio projects and developments", "/admin/projects", 5, projectRepository.countByIsVisibleTrue(), settingsMap));
+        allSections.add(createFixedSectionFromSetting("certifications", "Certifications", "Professional certifications and credentials", "/admin/certifications", 6, certificationRepository.countByIsVisibleTrue(), settingsMap));
+        allSections.add(createFixedSectionFromSetting("leadership", "Leadership & Involvement", "Leadership roles and community involvement", "/admin/leadership", 7, leadershipRepository.countByIsVisibleTrue(), settingsMap));
 
-        // Add dynamic sections - use their SAVED order directly (no offset)
-        List<Section> dynamicSections = sectionRepository.findAllByOrderByOrderIndexAsc();
+
+        // Add dynamic sections
+        List<Section> dynamicSections = sectionRepository.findAll();
         for (Section section : dynamicSections) {
             Integer contentCount = Math.toIntExact(sectionContentRepository.countBySectionIdAndIsVisibleTrue(section.getId()));
-            String route = "/admin/sections/" + section.getId() + "/content";
-
-            UnifiedSection unifiedSection = UnifiedSection.fromDynamicSection(section, contentCount, route);
-            // Use the saved order directly - no offset adjustment needed for display
-            unifiedSection.setOrderIndex(section.getOrderIndex());
-
-            allSections.add(unifiedSection);
+            allSections.add(UnifiedSection.fromDynamicSection(section, contentCount));
         }
 
         return allSections.stream()
@@ -79,99 +76,56 @@ public class SectionAdapterService {
                 .collect(Collectors.toList());
     }
 
-    // Helper method to get saved fixed section orders
-    private Map<String, Integer> getSavedFixedSectionOrders() {
-        List<SectionSetting> settings = sectionSettingRepository.findAllByOrderByDisplayOrderAsc();
-        Map<String, Integer> orderMap = new HashMap<>();
+    // =======================================================
+    // NEW METHODS TO BE CALLED FROM THE CONTROLLER
+    // =======================================================
 
-        for (SectionSetting setting : settings) {
-            orderMap.put(setting.getSectionType(), setting.getDisplayOrder());
+    @Transactional
+    public void reorderUnifiedSections(List<UnifiedSection> sections) {
+        for (int i = 0; i < sections.size(); i++) {
+            UnifiedSection section = sections.get(i);
+            int newPosition = i + 1; // Position is 1-based
+
+            if (section.getDynamic()) { // Changed from getIsDynamic() to isDynamic()
+                // It's a dynamic, custom section...
+                if (section.getId() != null) {
+                    sectionRepository.findById(section.getId()).ifPresent(dynamicSection -> {
+                        dynamicSection.setOrderIndex(newPosition);
+                        sectionRepository.save(dynamicSection);
+                    });
+                }
+            } else {
+                // It's a fixed, hard-coded section. Update or create the SectionSetting.
+                SectionSetting setting = sectionSettingRepository.findBySectionType(section.getSectionType())
+                        .orElse(new SectionSetting(section.getSectionType(), newPosition, section.getVisible()));
+                setting.setDisplayOrder(newPosition);
+                sectionSettingRepository.save(setting);
+            }
         }
-
-        return orderMap;
     }
 
-    // Private helper methods for creating fixed sections
-    private UnifiedSection createPersonalInfoSection(int order) {
-        return UnifiedSection.createFixedSection(
-                "Personal Information",
-                "Contact details and basic information",
-                order,
-                "personal-info",
-                "/admin/personal",
-                1
-        );
+    @Transactional
+    public void toggleFixedSectionVisibility(String sectionType, boolean isVisible) {
+        // Find the setting for the fixed section
+        SectionSetting setting = sectionSettingRepository.findBySectionType(sectionType)
+                .orElse(new SectionSetting(sectionType, 99, isVisible)); // Create if not exists, default order to last
+
+        setting.setIsVisible(isVisible);
+        sectionSettingRepository.save(setting);
     }
 
-    private UnifiedSection createExperienceSection(int order) {
-        long count = experienceRepository.countByIsVisibleTrue();
-        return UnifiedSection.createFixedSection(
-                "Experience",
-                "Work experience and professional history",
-                order,
-                "experience",
-                "/admin/experience",
-                Math.toIntExact(count)
-        );
-    }
+    // =======================================================
+    // HELPER METHODS
+    // =======================================================
 
-    private UnifiedSection createEducationSection(int order) {
-        long count = educationRepository.countByIsVisibleTrue();
-        return UnifiedSection.createFixedSection(
-                "Education",
-                "Academic background and qualifications",
-                order,
-                "education",
-                "/admin/education",
-                Math.toIntExact(count)
-        );
-    }
-
-    private UnifiedSection createSkillsSection(int order) {
-        long count = skillRepository.countByIsVisibleTrue();
-        return UnifiedSection.createFixedSection(
-                "Skills",
-                "Technical skills and competencies",
-                order,
-                "skills",
-                "/admin/skills",
-                Math.toIntExact(count)
-        );
-    }
-
-    private UnifiedSection createProjectsSection(int order) {
-        long count = projectRepository.countByIsVisibleTrue();
-        return UnifiedSection.createFixedSection(
-                "Projects",
-                "Portfolio projects and developments",
-                order,
-                "projects",
-                "/admin/projects",
-                Math.toIntExact(count)
-        );
-    }
-
-    private UnifiedSection createCertificationsSection(int order) {
-        long count = certificationRepository.countByIsVisibleTrue();
-        return UnifiedSection.createFixedSection(
-                "Certifications",
-                "Professional certifications and credentials",
-                order,
-                "certifications",
-                "/admin/certifications",
-                Math.toIntExact(count)
-        );
-    }
-
-    private UnifiedSection createLeadershipSection(int order) {
-        long count = leadershipRepository.countByIsVisibleTrue();
-        return UnifiedSection.createFixedSection(
-                "Leadership & Involvement",
-                "Leadership roles and community involvement",
-                order,
-                "leadership",
-                "/admin/leadership",
-                Math.toIntExact(count)
-        );
+    private UnifiedSection createFixedSectionFromSetting(String type, String defaultName, String defaultDesc, String route, int defaultOrder, Long count, Map<String, SectionSetting> settingsMap) {
+        SectionSetting setting = settingsMap.get(type);
+        if (setting != null) {
+            // Use saved setting
+            return UnifiedSection.createFixedSection(defaultName, defaultDesc, setting.getDisplayOrder(), type, route, Math.toIntExact(count), setting.getIsVisible());
+        } else {
+            // Use default values if no setting is saved yet
+            return UnifiedSection.createFixedSection(defaultName, defaultDesc, defaultOrder, type, route, Math.toIntExact(count), true); // Default to visible
+        }
     }
 }

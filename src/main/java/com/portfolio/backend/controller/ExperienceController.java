@@ -2,6 +2,7 @@ package com.portfolio.backend.controller;
 
 import com.portfolio.backend.model.Experience;
 import com.portfolio.backend.repository.ExperienceRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,48 +11,61 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/experience")
-@CrossOrigin(origins = "http://localhost:5173")
+// Remove the single @RequestMapping - we'll use specific paths instead
+// Remove @CrossOrigin - now handled globally in SecurityConfig
 public class ExperienceController {
 
     @Autowired
     private ExperienceRepository experienceRepository;
 
-    // Get all visible experiences (for public resume) - most recent first
-    @GetMapping("/public")
+    // ===========================================
+    // PUBLIC ENDPOINTS - No authentication required
+    // These serve your public portfolio/resume
+    // ===========================================
+
+    @GetMapping("/api/public/experience")
     public List<Experience> getVisibleExperiences() {
+        // This replaces your old "/public" endpoint
+        // Only returns experiences marked as visible, ordered properly
         return experienceRepository.findByIsVisibleTrueOrderByOrderIndexAsc();
     }
 
-    // Get current positions only
-    @GetMapping("/current")
+    @GetMapping("/api/public/experience/current")
     public List<Experience> getCurrentPositions() {
+        // Public endpoint to show current positions on your portfolio
         return experienceRepository.findCurrentPositions();
     }
 
-    // Get experiences by company
-    @GetMapping("/company/{companyName}")
+    @GetMapping("/api/public/experience/company/{companyName}")
     public List<Experience> getExperiencesByCompany(@PathVariable String companyName) {
+        // Public endpoint to filter experiences by company
+        // Still only shows visible experiences
         return experienceRepository.findByCompanyContainingIgnoreCaseAndIsVisibleTrueOrderByOrderIndexAsc(companyName);
     }
 
-    // Get all experiences (for admin) - most recent first
-    @GetMapping
+    // ===========================================
+    // ADMIN ENDPOINTS - Requires ROLE_ADMIN
+    // These are protected by Spring Security
+    // ===========================================
+
+    @GetMapping("/api/admin/experience")
     public List<Experience> getAllExperiences() {
+        // Admin can see ALL experiences (visible and hidden)
+        // This was your old root GET endpoint
         return experienceRepository.findAllByOrderByOrderIndexDesc();
     }
 
-    // Get single experience
-    @GetMapping("/{id}")
+    @GetMapping("/api/admin/experience/{id}")
     public ResponseEntity<Experience> getExperience(@PathVariable Long id) {
+        // Admin can get any specific experience by ID
         Optional<Experience> experience = experienceRepository.findById(id);
         return experience.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Create new experience
-    @PostMapping
+    @PostMapping("/api/admin/experience")
     public Experience createExperience(@RequestBody Experience experience) {
+        // Only admins can create new experiences
         // Auto-set order index if not provided
         if (experience.getOrderIndex() == null) {
             experience.setOrderIndex(experienceRepository.getMaxOrderIndex() + 1);
@@ -59,10 +73,10 @@ public class ExperienceController {
         return experienceRepository.save(experience);
     }
 
-    // Update experience
-    @PutMapping("/{id}")
+    @PutMapping("/api/admin/experience/{id}")
     public ResponseEntity<Experience> updateExperience(@PathVariable Long id,
                                                        @RequestBody Experience experienceDetails) {
+        // Only admins can update experiences
         Optional<Experience> optionalExperience = experienceRepository.findById(id);
 
         if (optionalExperience.isPresent()) {
@@ -82,13 +96,20 @@ public class ExperienceController {
         return ResponseEntity.notFound().build();
     }
 
-    // Delete experience
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/api/admin/experience/{id}")
     public ResponseEntity<?> deleteExperience(@PathVariable Long id) {
+        // Only admins can delete experiences
         if (experienceRepository.existsById(id)) {
             experienceRepository.deleteById(id);
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/api/admin/dashboard")
+    public ResponseEntity<String> dashboard(HttpServletRequest request) {
+        // This will show exactly what path Spring sees
+        System.out.println("Request URI: '" + request.getRequestURI() + "'");
+        return ResponseEntity.ok("Admin Dashboard");
     }
 }
