@@ -11,17 +11,18 @@ public class PortfolioBackendApplication {
 
     public static void main(String[] args) {
 
-        // Load .env file
+        // Try to load .env file only if it exists (ignore if missing)
         Dotenv dotenv = Dotenv.configure()
                 .directory(".")
+                .ignoreIfMissing() // 👈 prevents crash when .env isn't found
                 .load();
 
-        // Set system properties
+        // Set system properties if .env is present
         dotenv.entries().forEach(entry -> {
             System.setProperty(entry.getKey(), entry.getValue());
-            System.out.println("Loaded: " + entry.getKey() + " = " + entry.getValue()); // Debug line
+            System.out.println("Loaded: " + entry.getKey() + " = " + entry.getValue());
         });
+
         SpringApplication.run(PortfolioBackendApplication.class, args);
     }
-
 }
