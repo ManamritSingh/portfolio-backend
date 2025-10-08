@@ -2,7 +2,6 @@ package com.portfolio.backend.security;
 
 import com.portfolio.backend.config.CorsProperties;
 import com.portfolio.backend.repository.UserRepository;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -10,7 +9,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,19 +21,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 
 @Configuration
-@EnableWebSecurity
 public class SecurityConfig {
-
-
-    @Bean
-    public FilterRegistrationBean<JwtAuthenticationFilter> loggingFilter(JwtAuthenticationFilter filter) {
-        FilterRegistrationBean<JwtAuthenticationFilter> registrationBean = new FilterRegistrationBean<>();
-        registrationBean.setFilter(filter);
-        registrationBean.addUrlPatterns("/*"); // force all requests
-        registrationBean.setOrder(1);
-        return registrationBean;
-    }
-
 
     // 1️⃣ UserDetailsService bean
     @Bean
@@ -65,17 +51,18 @@ public class SecurityConfig {
     // 5️⃣ Security filter chain
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                   JwtAuthenticationFilter jwtAuthFilter,
-                                                   CorsProperties corsProperties) throws Exception {
+                                                   JwtAuthenticationFilter jwtAuthFilter) throws Exception {
+
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // public endpoints
+                        .requestMatchers("/", "/api/test").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
-//                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // token must have ROLE_ADMIN
+                        // admin endpoints
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // all other endpoints require authentication
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -84,14 +71,18 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 6️⃣ CORS config
+    // 6️⃣ CORS configuration
     @Bean
-    public CorsConfigurationSource corsConfigurationSource(CorsProperties corsProperties) {
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(corsProperties.getAllowedOrigins()));
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5173",
+                "https://manamrit.netlify.app"
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
         configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
