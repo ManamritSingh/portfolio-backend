@@ -60,6 +60,7 @@ public class SecurityConfig {
                         // public endpoints
                         .requestMatchers("/", "/api/test").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
                         // admin endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // all other endpoints require authentication
